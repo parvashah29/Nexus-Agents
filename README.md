@@ -28,13 +28,13 @@ Nexus is an advanced autonomous research application that leverages a team of sp
 
 3.  **Creative Engine (Writer)**
     *   *Role*: Content Creation
-    *   *Model*: `gemini-3-pro-preview`
+    *   *Model*: `gemini-2.5-flash`
     *   *Task*: Transforms the analytical brief into an engaging, SEO-friendly blog post formatted in Markdown.
 
 ## 🛠️ Tech Stack
 
 *   **Frontend**: React 19, TypeScript
-*   **Styling**: Tailwind CSS
+*   **Styling**: Tailwind CSS (CDN)
 *   **AI Logic**: Google Gemini API (`@google/genai`)
 *   **Markdown Rendering**: `react-markdown`
 *   **State Management**: React Hooks & Local Storage
@@ -50,12 +50,19 @@ Nexus is an advanced autonomous research application that leverages a team of sp
     npm install
     ```
 
-3.  **Configuration**
-    Ensure the `process.env.API_KEY` is available in your environment.
+3.  **Configuration** — get a free key at <https://aistudio.google.com/apikey>, then either:
+    *   copy `.env.example` to `.env` and set `GEMINI_API_KEY=...` (restart the dev server), **or**
+    *   run the app and paste the key into the **🔑 Add Gemini API key** button (stored only in your browser's localStorage).
+
+    > ⚠️ The key from `.env` is compiled into the JavaScript bundle. Use it for **local use only**.
+    > If you host a build publicly, leave `.env` empty so each visitor brings their own key.
+
+    The model used by all agents is set in one place: `MODEL` in `services/geminiService.ts`.
 
 4.  **Running the App**
     ```bash
-    npm start
+    npm run dev      # http://localhost:3000
+    npm run build    # production build into dist/
     ```
 
 ## 📖 Usage Guide
@@ -64,6 +71,7 @@ Nexus is an advanced autonomous research application that leverages a team of sp
     *   Launch the app.
     *   Register a new account.
     *   Enter the simulation code `1234` when prompted for email verification.
+    *   Note: login is a **local demo** (accounts live in your browser's localStorage, no real email is sent) — it only separates research history per user on one machine.
 2.  **Deploy Agents**:
     *   Enter a topic (e.g., "The Impact of AI on Healthcare") in the main search bar.
     *   Click "Deploy".
@@ -81,11 +89,14 @@ Nexus is an advanced autonomous research application that leverages a team of sp
 *   `App.tsx`: Main application logic and layout orchestration.
 *   `services/geminiService.ts`: API layer handling communication with Google Gemini, including specific prompts for each agent role.
 *   `services/storageService.ts`: Handles simulated authentication and local data persistence.
+*   `services/apiKey.ts`: Resolves the Gemini API key (browser-stored key → `.env`) and turns API errors into readable messages.
+*   `services/cacheService.ts`: IndexedDB research cache (24h) and history storage.
 *   `components/`:
     *   `AgentCard.tsx`: Visual representation of an individual agent.
     *   `ChatInterface.tsx`: Component for follow-up Q&A.
     *   `AuthPage.tsx`: Login/Register screens.
     *   `Sidebar.tsx`: Navigation and history management.
+    *   `ApiKeySettings.tsx`: In-app Gemini API key input.
     *   `ShareButtons.tsx`: Social media integration.
 
 ---

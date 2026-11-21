@@ -4,6 +4,8 @@ import AuthPage from './components/AuthPage';
 import Sidebar from './components/Sidebar';
 import ShareButtons from './components/ShareButtons';
 import ChatInterface from './components/ChatInterface';
+import ApiKeySettings from './components/ApiKeySettings';
+import { friendlyError, getApiKey } from './services/apiKey';
 import { AgentState, AgentRole, AgentStatus, AgentOutput, HistoryItem, User } from './types';
 import { runResearcherAgent, runAnalystAgent, runWriterAgent } from './services/geminiService';
 import { authService, historyService } from './services/storageService';
@@ -107,14 +109,13 @@ const App: React.FC = () => {
     setDebugLogs([]);
     setShowDebug(true);
 
-    // API key check
-    const apiKey = (window as any).__VITE_API_KEY__ ?? (import.meta as any).env?.VITE_API_KEY ?? process.env.API_KEY;
+    // API key check (never log any part of the key itself)
     addLog('info', `Pipeline started — topic: "${topic}"`);
-    addLog(apiKey ? 'success' : 'error',
-      apiKey
-        ? `API key detected (${String(apiKey).slice(0, 8)}...${String(apiKey).slice(-4)})`
-        : 'API key is MISSING or undefined — check your .env file and restart the server'
-    );
+    if (getApiKey()) {
+      addLog('success', 'API key configured');
+    } else {
+      addLog('error', 'No API key configured — use the 🔑 button above or set GEMINI_API_KEY in .env');
+    }
 
     try {
       // --- Step 1: Researcher ---
@@ -181,12 +182,11 @@ const App: React.FC = () => {
       setRefreshHistory(prev => prev + 1);
 
     } catch (error: any) {
-      const msg = error?.message || String(error);
+      const msg = friendlyError(error);
       const status = error?.status ?? error?.code ?? '';
       addLog('error', `❌ PIPELINE FAILED`);
       addLog('error', `Error message: ${msg}`);
       if (status) addLog('error', `HTTP Status / Code: ${status}`);
-      if (error?.stack) addLog('warn', `Stack: ${String(error.stack).split('\n').slice(0,3).join(' | ')}`);
       console.error("Workflow failed", error);
       setAgents(prev => prev.map(agent =>
         agent.status === AgentStatus.WORKING
@@ -281,6 +281,8 @@ const App: React.FC = () => {
             Three specialized AI agents research, analyze, and write — so you don't have to.
           </p>
         </div>
+
+        <ApiKeySettings />
 
         {/* Search Input */}
         <div className="w-full max-w-2xl relative mb-4 group z-10">

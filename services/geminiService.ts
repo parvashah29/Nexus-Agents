@@ -1,12 +1,18 @@
 import { GoogleGenAI, Chat } from "@google/genai";
 import { GroundingSource } from "../types";
 import { researchCache } from "./cacheService";
+import { ApiKeyError, getApiKey } from "./apiKey";
+
+// Single place to change the model used by all agents
+export const MODEL = 'gemini-2.5-flash';
 
 export type ChunkCallback = (chunk: string) => void;
 
 const createClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key not found");
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new ApiKeyError("No Gemini API key configured. Click '🔑 Add Gemini API key' above, or set GEMINI_API_KEY in .env and restart.");
+  }
   return new GoogleGenAI({ apiKey });
 };
 
@@ -15,8 +21,13 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn();
-    } catch (err) {
+    } catch (err: any) {
       lastError = err;
+      // Retrying cannot fix a missing/invalid key or a bad request — fail fast
+      const status = Number(err?.status ?? err?.code);
+      if (err instanceof ApiKeyError || [400, 401, 403, 404].includes(status) || /"code":\s*(400|401|403|404)/.test(String(err?.message))) {
+        throw err;
+      }
       if (attempt < maxAttempts - 1) {
         await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
       }
@@ -39,7 +50,7 @@ export const runResearcherAgent = async (
   return withRetry(async () => {
     const ai = createClient();
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+      model: MODEL,
       contents: `Research the topic "${topic}" comprehensively. Your notes must cover ALL of the following dimensions:
 
 1. **Core concepts & definitions** — What is it? Key terminology.
@@ -92,7 +103,7 @@ export const runAnalystAgent = async (
   return withRetry(async () => {
     const ai = createClient();
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+      model: MODEL,
       contents: `Transform the following raw research notes into a structured strategic brief for a content writer.
 
 Your brief MUST follow this exact structure:
@@ -141,7 +152,7 @@ export const runWriterAgent = async (
   return withRetry(async () => {
     const ai = createClient();
     const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+      model: MODEL,
       contents: `Write a compelling, publication-ready blog post about "${topic}" based on the strategic brief below.
 
 **Requirements:**
@@ -176,7 +187,7 @@ ${analysis}`,
 export const createFollowUpChat = (topic: string, blogContent: string, researchNotes: string): Chat => {
   const ai = createClient();
   return ai.chats.create({
-    model: 'gemini-2.5-flash',
+    model: MODEL,
     config: {
       systemInstruction: `You are a knowledgeable assistant helping a user explore a research report you just generated.
 
